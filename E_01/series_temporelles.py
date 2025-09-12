@@ -13,14 +13,16 @@ import sys
 import glob
 import numpy as np
 import datetime as dt
+from datetime import datetime, timedelta
 from dateutil import tz
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import xarray as xr
 from scipy.spatial import cKDTree, KDTree
+import pandas as pd
 
 # répertoire
-path_file='/Users/evecastonguay/Desktop/Labo/E_01/imerg_pr_201911_3h.nc4'
+path_file='/Users/evecastonguay/Desktop/Labo3/E_01/imerg_pr_201911_3h.nc4'
 
 # nom de la variable
 var_name='precipitationCal'
@@ -99,7 +101,6 @@ wal_nearest_lon = wal_ds.lon.values
 wal_nearest_lat = wal_ds.lat.values
 print(f"Point de grille le plus proche pour Walenstadt: ({wal_nearest_lon:.2f}°; {wal_nearest_lat:.2f}°)")
 
-#%%
 # 2.2) variation du taux de précipitation en fonction du temps
 # kuala lumpur
 kl_pcpts = kl_ds[var_name].values # type np.ndarray, (240,)
@@ -307,40 +308,105 @@ ax.legend()
 ax.grid(True)
 plt.show()
 
-#%% cycle journalier de précipitation
-'''
-différence entre UTC et heure locale = longitude/15
--> Montreal 
-*malgré changement d'heure le 3 novembre, assumé heure standard d'hiver pour pas créer 
-un double dans les données au moment du changement d'heure*
-'''
-# calcul de l'ajustement à l'heure UTC pour chaque ville
+#%% 4) cycle journalier de précipitation
+# note pour Montréal - malgré changement d'heure le 3 novembre à 2 am, assumé heure standard d'hiver pour ne pas créer un double dans les données au moment du changement d'heure
+# -> calcul de l'ajustement à l'heure UTC pour chaque ville
 kl_local = kl_lon/15
 mtl_local = mtl_lon/15
 oce_local = oce_lon/15
 wal_local = wal_lon/15
 
-# convertir UTC (datetime string) en heure locale
-# https://stackoverflow.com/questions/4770297/convert-utc-datetime-string-to-local-datetime
-utc = datetime.strptime('2011-01-21 02:37:21', '%Y-%m-%d %H:%M:%S') # crée un datetime string
+# -> boucle pour condenser le code
+place = ["kl","mtl","oce","wal"]
+for p in place:
 
-kl_time = kl_ds['time'].values # class np.datetime64,
-print(kl_time)
+    # -> convertir UTC (datetime string) en heure locale
+    globals()[f"{p}_time"] = globals()[f"{p}_ds"]['time'].values  # class np.datetime64, format: '2019-11-30T21:00:00.000000000'
+    globals()[f"{p}_h"] = int(globals()[f"{p}_local"])
+    globals()[f"{p}_m"] = int((globals()[f"{p}_local"] - globals()[f"{p}_h"]) * 60)
+    globals()[f"{p}_s"] = int(((globals()[f"{p}_local"] - globals()[f"{p}_h"]) * 60 - globals()[f"{p}_m"]) * 60)
 
+    # -> conversion des heures, minutes en secondes
+    globals()[f"{p}_h"] = globals()[f"{p}_h"]*60*60
+    globals()[f"{p}_m"] = globals()[f"{p}_m"]*60
+
+    # -> faire le changement d'heure
+    globals()[f"{p}_time"] = globals()[f"{p}_time"] +np.timedelta64(globals()[f"{p}_h"]+globals()[f"{p}_m"]+globals()[f"{p}_s"], 's')
+
+'''
+les heures locales de chaque ville sont encodées dans: 
+kl_time
+mtl_time
+oce_time
+wal_time
+(type = numpy.ndarray à l'intérieur du duquel il y a des numpy.datetime64)
+'''
+#%%
+# je cherche des numéros d'indice
+# 8 séries de numéros d'indice
+# pour pouvoir extraire mes valeurs de pcpt
+# et les mettre sur un graphe
+
+# time = kl_ds['time'] # datarray mais .values est numpy.datetime64
+
+t_0 = []
+t_3 = []
+t_6 = []
+t_9 = []
+t_12 = []
+t_15 = []
+t_18 = []
+t_21 = []
+
+for i, val in enumerate(kl_time):
+    t = pd.Timestamp(val)
+    # -> ajouter l'indice de l'élément dans la liste appropriée
+    match t.hour:
+        case 0:
+            t_0.append(i)
+        case 3:
+            t_3.append(i)
+        case 6:
+            t_6.append(i)
+        case 9:
+            t_9.append(i)
+        case 12:
+            t_12.append(i)
+        case 15:
+            t_15.append(i)
+        case 18:
+            t_18.append(i)
+        case 21:
+            t_21.append(i)
+
+
+
+
+
+
+
+
+
+
+'''
+# convertir en objet datetime
+# -> sélectionner certaines heures de la journée
+# faire dataarray
+da = xr.DataArray(kl_time)
+
+# ou travailler avec dataset, kl_ds
+ds2 = kl_ds.sel(time='6')
+
+match kl_time[i].hour:
+        case 6:
+            print('1')
+
+#kl_time = kl_time.astype(datetime)
 for i in kl_time:
-    # replace
-# essayer de voir ça fait quoi soustraire deux datetime
-# test commit
+    #value = i.astype(datetime.datetime)
+    print(value)
 
-
-
-
-
-
-
-
-
-
+'''
 
 
 
