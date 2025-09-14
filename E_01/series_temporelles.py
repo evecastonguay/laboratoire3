@@ -18,6 +18,7 @@ from dateutil import tz
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import xarray as xr
+from matplotlib.pyplot import title, xlabel
 from scipy.spatial import cKDTree, KDTree
 import pandas as pd
 
@@ -310,6 +311,7 @@ plt.show()
 
 #%% 4) cycle journalier de précipitation
 # note pour Montréal - malgré changement d'heure le 3 novembre à 2 am, assumé heure standard d'hiver pour ne pas créer un double dans les données au moment du changement d'heure
+
 # -> calcul de l'ajustement à l'heure UTC pour chaque ville
 kl_local = kl_lon/15
 mtl_local = mtl_lon/15
@@ -317,96 +319,51 @@ oce_local = oce_lon/15
 wal_local = wal_lon/15
 
 # -> boucle pour condenser le code
-place = ["kl","mtl","oce","wal"]
+place = ["kl","mtl","oce","wal"] # "kl","mtl","oce","wal"
+
 for p in place:
-
-    # -> convertir UTC (datetime string) en heure locale
-    globals()[f"{p}_time"] = globals()[f"{p}_ds"]['time'].values  # class np.datetime64, format: '2019-11-30T21:00:00.000000000'
-    globals()[f"{p}_h"] = int(globals()[f"{p}_local"])
-    globals()[f"{p}_m"] = int((globals()[f"{p}_local"] - globals()[f"{p}_h"]) * 60)
-    globals()[f"{p}_s"] = int(((globals()[f"{p}_local"] - globals()[f"{p}_h"]) * 60 - globals()[f"{p}_m"]) * 60)
-
-    # -> conversion des heures, minutes en secondes
-    globals()[f"{p}_h"] = globals()[f"{p}_h"]*60*60
-    globals()[f"{p}_m"] = globals()[f"{p}_m"]*60
+    # -> conversion du décalage horaire (_local) en nombre de secondes de décalage
+    globals()[f"{p}_s"] = int(globals()[f"{p}_local"] * 60 * 60)
 
     # -> faire le changement d'heure
-    globals()[f"{p}_time"] = globals()[f"{p}_time"] +np.timedelta64(globals()[f"{p}_h"]+globals()[f"{p}_m"]+globals()[f"{p}_s"], 's')
+    globals()[f"{p}_time"] = globals()[f"{p}_ds"]['time'].values  # class np.datetime64, format: '2019-11-30T21:00:00.000000000'
+    globals()[f"{p}_time"] = globals()[f"{p}_time"] +np.timedelta64(globals()[f"{p}_s"], 's')
 
-'''
-les heures locales de chaque ville sont encodées dans: 
-kl_time
-mtl_time
-oce_time
-wal_time
-(type = numpy.ndarray à l'intérieur du duquel il y a des numpy.datetime64)
-'''
-#%%
-# je cherche des numéros d'indice
-# 8 séries de numéros d'indice
-# pour pouvoir extraire mes valeurs de pcpt
-# et les mettre sur un graphe
+    '''
+    les heures locales de chaque ville sont encodées dans: 
+    kl_time
+    mtl_time
+    oce_time
+    wal_time
+    (type = numpy.ndarray à l'intérieur du duquel il y a des numpy.datetime64)
+    '''
 
-# time = kl_ds['time'] # datarray mais .values est numpy.datetime64
+    # -> listes contenant les différentes heures de mesure dans une journée & les indices associés aux prises de mesure pour chaque heure
+    heures = np.array([],dtype=int)
+    indices = np.array([],dtype=int)
+    mean_pcpts = np.array([])
 
-t_0 = []
-t_3 = []
-t_6 = []
-t_9 = []
-t_12 = []
-t_15 = []
-t_18 = []
-t_21 = []
+    for i, val in enumerate(globals()[f"{p}_time"]):
+        t = pd.Timestamp(val) # changer le format de l'heure (timestamp=pandas, datetime64=numpy)
+        h = t.hour
+        heures = np.append(heures, h)
+        indices = np.append(indices, i)
 
-for i, val in enumerate(kl_time):
-    t = pd.Timestamp(val)
-    # -> ajouter l'indice de l'élément dans la liste appropriée
-    match t.hour:
-        case 0:
-            t_0.append(i)
-        case 3:
-            t_3.append(i)
-        case 6:
-            t_6.append(i)
-        case 9:
-            t_9.append(i)
-        case 12:
-            t_12.append(i)
-        case 15:
-            t_15.append(i)
-        case 18:
-            t_18.append(i)
-        case 21:
-            t_21.append(i)
+    heures_uniques = np.unique(heures)
+    dict = {h_u: indices[heures == h_u] for h_u in heures_uniques}
 
+    # -> trouver la moyenne des précipitations à chaque heure
+    for h_u in heures_uniques:
+        mean_pcpts = np.append(mean_pcpts, globals()[f"{p}_pcpts"][dict[h_u]].mean())
 
+    # -> plot
+    fig, ax = plt.subplots()
+    ax.scatter(heures_uniques, mean_pcpts, c='mediumseagreen', s=100, alpha=0.5)
+    ax.grid(True)
+    ax.set(ylim=(0, 5), yticks=np.arange(0, 5, 0.5), xticks=heures_uniques,
+           title=f"Moyenne des précipitations pour {p}", xlabel="heures", ylabel="précipitations [mm/3h]")
+    plt.show()
 
-
-
-
-
-
-
-
-'''
-# convertir en objet datetime
-# -> sélectionner certaines heures de la journée
-# faire dataarray
-da = xr.DataArray(kl_time)
-
-# ou travailler avec dataset, kl_ds
-ds2 = kl_ds.sel(time='6')
-
-match kl_time[i].hour:
-        case 6:
-            print('1')
-
-#kl_time = kl_time.astype(datetime)
-for i in kl_time:
-    #value = i.astype(datetime.datetime)
-    print(value)
-
-'''
 
 
 
