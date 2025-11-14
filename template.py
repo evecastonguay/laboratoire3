@@ -104,7 +104,7 @@ print('********************************************')
 colors=['k','r','g','orange']
 plt.plot(rcm.Tatm, rcm.lev, marker='s', color=colors[0],label='contrôle') # [::-1] sur T°
 plt.plot(rcm.Ts, 1000, marker='s',color=colors[0]) # à 1000 hPa on met la Ts
-
+print('control',rcm.Ts)
 for gi,gg in enumerate(['O3','CO2','CH4']):
     state = climlab.column_state(num_lev=30)
     h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
@@ -114,6 +114,7 @@ for gi,gg in enumerate(['O3','CO2','CH4']):
     rcm.integrate_years(2) # Run the model for two years
     plt.plot(rcm.Tatm, rcm.lev, marker='s', label='non-'+gg,color=colors[gi+1])
     plt.plot(rcm.Ts, 1000, marker='s',color=colors[gi+1])
+    print(rcm.Ts,gg)
 plt.plot(ncep_T, ncep_lev, marker='x',color='k',label='réanalyse NCEP')
 plt.gca().invert_yaxis()
 #plt.title('Sensitivity: gases')
@@ -164,6 +165,7 @@ for i in conc:
     # plot model
     ax1[0].plot(rcm.Tatm, rcm.lev, label='CO2*'+str(i)) # ,color='r',alpha=0.5
     ax1[0].scatter(rcm.Ts, 1000) # pour faire un point représentant température de surface
+    print(rcm.Ts,'CO2')
     print(rcm.subprocess.Radiation.input['absorber_vmr']['CO2'])
 # 3) plot réanalyse NCEP
 #plt.plot(ncep_T, ncep_lev, marker='x',color='k',label='réanalyse NCEP')
@@ -203,6 +205,7 @@ for i in conc:
     # plot model
     ax1[1].plot(rcm.Tatm, rcm.lev, label='CH4*'+str(i)) # ,color='r',alpha=0.5
     ax1[1].scatter(rcm.Ts, 1000) # pour faire un point représentant température de surface
+    print(rcm.Ts, 'CH4')
     # afficher les valeurs de concentration
     print(rcm.subprocess.Radiation.input['absorber_vmr']['CH4'])
 # 3) plot réanalyse NCEP
@@ -246,6 +249,7 @@ for i in conc:
     # plot model
     ax1[2].plot(rcm.Tatm, rcm.lev, label='O3*'+str(i)) # ,color='r',alpha=0.5
     ax1[2].scatter(rcm.Ts, 1000) # pour faire un point représentant température de surface
+    print(rcm.Ts, 'O3')
     # afficher les valeurs de concentration
     print(rcm.subprocess.Radiation.input['absorber_vmr']['O3'])
 # 3) plot réanalyse NCEP
@@ -273,9 +277,9 @@ print('********************************************')
 print('Valeurs de CO2 et CH4 de 1850 (préindustrielles), 1979, aujourd''hui')
 print('********************************************')
 
-c_CO2 = [0.000290,0.000334,0.000425]
-c_CH4 = [0.00000079160,0.00000153055,0.00000193354]
-labelling = ["1850","1979", "2025"]
+c_CO2 = [0.000280,0.000334,0.000425]
+c_CH4 = [0.00000071020,0.00000153055,0.00000193354]
+labelling = ["1750","1979", "2025"]
 alb=.25
 # 1) simu de contrôle
 #plt.plot(rcm.Tatm, rcm.lev, marker='s', color='k',label='contrôle') # [::-1] sur T°
@@ -343,12 +347,15 @@ print('********************************************')
 print('Problème de géo-ingénérie')
 print('********************************************')
 
+alb=.3
+co2_pre_indu = 0.000280
+
 ## 1) Température de surface associée au profil contrôle
-alb=.25
 state = climlab.column_state(num_lev=30)
 h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
 rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
 rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
+rcm.absorber_vmr['CO2'] = co2_pre_indu
 rcm.integrate_years(2)
 T_ctr = rcm.Ts
 print(f"La température de surface pour la simu de contrôle est de {T_ctr.item():.2f} K")
@@ -358,10 +365,11 @@ state = climlab.column_state(num_lev=30)
 h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
 rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
 rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
-rcm.absorber_vmr['CO2'] = rcm.absorber_vmr['CO2']*2
+rcm.absorber_vmr['CO2'] = co2_pre_indu*2
 rcm.integrate_years(2)
 T_2_CO2 = rcm.Ts
 print(f"La température de surface pour la simu de contrôle est de {T_2_CO2.item():.2f} K")
+
 
 ## 3) Calculer l'augmentation de température
 augm = T_2_CO2.item()-T_ctr.item()
@@ -390,7 +398,7 @@ plt.close()'''
 
 ## 5) Régression linéaire
 from sklearn import linear_model
-vals_alb = np.arange(0.2,0.3,0.01)
+vals_alb = np.arange(0.27,0.33,0.01)
 vals_Ts_regression = []
 for a in vals_alb:
     state = climlab.column_state(num_lev=30)
@@ -401,45 +409,60 @@ for a in vals_alb:
     vals_Ts_regression.append(rcm.Ts)
 # combiner
 vals_Ts_regression = np.array(vals_Ts_regression)
-vals_alb = np.reshape(vals_alb, (10,1))
+vals_alb = np.reshape(vals_alb, (6,1))
 #combined = np.stack((vals_alb,vals_Ts_regression))
 reg = linear_model.LinearRegression()
-lin_reg = reg.fit(vals_alb,vals_Ts_regression) # renvoie la fonction y = -107.59x + 305.63
+lin_reg = reg.fit(vals_alb,vals_Ts_regression)
+print('a: ',reg.coef_,"b: ",reg.intercept_) # renvoie la fonction y = -111.95x + 306.83
 
 ## 6) Calculer la variation d'albédo nécessaire
 # sachant que ∆T = ∆y = 1.63, et sachant que ∆x = ∆y/a, alors
-variation_albedo_necessaire = -augm/reg.coef_ # 0.01511803. crée une baisse de température de même grandeur que l'augmentation causée par le CO2
-
+variation_albedo_necessaire = -augm/reg.coef_ # 0.01437508. crée une baisse de température de même grandeur que l'augmentation causée par le CO2
+print("Variation d''albédo nécessaire est: ",variation_albedo_necessaire)
 
 #%%
 print('********************************************')
-print('Deux profils d''albédo')
+print('Deux profils d''albédo') # rouler section précédente
 print('********************************************')
 
-# 1) simu de contrôle
-alb=.25
-state = climlab.column_state(num_lev=30)
-h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
-rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
-rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
-rcm.integrate_years(2)
-plt.plot(rcm.Tatm, rcm.lev, color='k',label='contrôle') # [::-1] sur T°
-plt.scatter(rcm.Ts, 1000, color='k') # à 1000 hPa on met la Ts
+alb=.3
+co2_pre_indu = 0.000280
 
-# 1) modification sur l'albédo et le Co2
-alb=.25+ 0.01511803 # CHANGER À variation_albedo_necessaire
+# 1) avant le doublement du co2
 state = climlab.column_state(num_lev=30)
 h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
 rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
 rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
-rcm.absorber_vmr['CO2'] = rcm.absorber_vmr['CO2']*2
+rcm.absorber_vmr['CO2'] = co2_pre_indu
 rcm.integrate_years(2)
-plt.plot(rcm.Tatm, rcm.lev, label=r'CO2*2,$\alpha=0.252$') # [::-1] sur T°
-plt.scatter(rcm.Ts, 1000) # à 1000 hPa on met la Ts
+plt.plot(rcm.Tatm, rcm.lev, color='c',label='état initial') # [::-1] sur T°
+plt.scatter(rcm.Ts, 1000, marker='D', color='c') # à 1000 hPa on met la Ts
+
+# 2) doublement du co2, avant géo-ingénierie
+state = climlab.column_state(num_lev=30)
+h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
+rcm.absorber_vmr['CO2'] = co2_pre_indu*2
+rcm.integrate_years(2)
+plt.plot(rcm.Tatm, rcm.lev, color='m', label='doublement du CO2') # [::-1] sur T°
+plt.scatter(rcm.Ts, 1000, color='m') # à 1000 hPa on met la Ts
+
+# 1) modification sur l'albédo
+alb = alb + variation_albedo_necessaire
+state = climlab.column_state(num_lev=30)
+h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+rcm = climlab.couple([rad,h2o], name='Radiative-Equilibrium Model')
+rcm.absorber_vmr['CO2'] = co2_pre_indu*2
+rcm.integrate_years(2)
+plt.plot(rcm.Tatm, rcm.lev, color='y', label='après géo-ingénierie') # [::-1] sur T°
+plt.scatter(rcm.Ts, 1000, color='y') # à 1000 hPa on met la Ts
 
 plt.gca().invert_yaxis()
 plt.ylabel('Pression (hPa)')
 plt.xlabel('Température (K)')
+plt.legend()
 fig_name=outpath+'2profils.png'
 plt.savefig(fig_name,bbox_inches='tight',dpi=500)
 plt.close()
@@ -457,12 +480,14 @@ h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
 rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
 rcms={}
 rcms['rcm0'] = climlab.couple([rad,h2o], name='Radiative-Convective Model') # Adjustment includes the surface if ``'Ts'`` is included in the ``state``dictionary (and Ts IS included)
+
 conv = climlab.convection.ConvectiveAdjustment(name='Convection', state=state, adj_lapse_rate=6.5) # moist adiabatic lapse rate -> lapse rate in K per km (decrease of T per km)
 rcms['rcm1'] = climlab.couple([rad,conv,h2o], name='Radiative-Convective Model')
+
 conv = climlab.convection.ConvectiveAdjustment(name='Convection', state=state, adj_lapse_rate=9.8) # dry adiabatic lapse rate
 rcms['rcm2'] = climlab.couple([rad,conv,h2o], name='Radiative-Convective Model')
 
-mod_name=['control','conv-6.5','conv-9.8']
+mod_name=['contrôle','conv-6.5','conv-9.8']
 couleurs=['k','teal','mediumpurple']
 for ai in range(3):
     rcms['rcm'+str(ai)].integrate_years(2)
@@ -475,6 +500,165 @@ plt.ylabel('Pression (hPa)')
 plt.xlabel('Température (K)')
 plt.gca().legend(loc='center left', bbox_to_anchor=(1, 0.5))
 fig_name=outpath+'fig5.png'
+print('output figure: ', fig_name)
+plt.savefig(fig_name,dpi=500,bbox_inches='tight')
+plt.close()
+
+#%%
+print('\n','\n','********************************************')
+print('Comparaison avec GIEC')
+print('********************************************')
+
+alb=.25
+state = climlab.column_state(num_lev=30)
+h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+conv = climlab.convection.ConvectiveAdjustment(name='Convection', state=state, adj_lapse_rate=6.5) # moist adiabatic lapse rate -> lapse rate in K per km (decrease of T per km)
+rcms = climlab.couple([rad,conv,h2o], name='Radiative-Convective Model')
+rcms.integrate_years(2)
+
+## print model ouputs of model with lapse rate = 6.5
+print('diagnostics: ',rcms.diagnostics,'\n') # see https://climlab.readthedocs.io/en/latest/api/climlab.radiation.Radiation.html
+print('tendencies',rcms.tendencies,'\n')
+print('Tair: ',rcms.Tatm,'\n')
+print('albedo',rcms.SW_flux_up[-1]/rcms.SW_flux_down[-1],'\n')
+print('co2',rad.absorber_vmr['CO2'],'\n') #volumetric mixing ratio
+print('ch4',rad.absorber_vmr['CH4'],'\n') #volumetric mixing ratio
+
+#%%
+print('\n','\n','********************************************')
+print('Figure en extra')
+print('********************************************')
+
+# figure combinées
+fig, ax = plt.subplots(2,1, figsize=(9, 5))
+
+## partie 1
+alb=.29
+co2_values_pre = np.arange(280,1100,10)
+co2_values = co2_values_pre*1e-6
+print(co2_values)
+t_sf = []
+
+for i, c in enumerate(co2_values):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf.append(rcm.Ts[0])
+
+ax[0].plot(co2_values_pre,t_sf,  color='k')
+ax[0].set_yticks([274,275,276,277])
+ax[0].set_ylabel(r'$T_s$ (K)')
+ax[0].set_xlabel('Concentration de CO2 (ppm)')
+ax[0].set_title('a)')
+
+'''fig_name=outpath+'extra_co2_p1.png'
+print('output figure: ', fig_name)
+plt.savefig(fig_name,dpi=500,bbox_inches='tight')'''
+
+## partie 2
+co2_historique0 = np.array([280,315,334,370,425])*1e-6
+annees_histo = [1750,1958,1979,2000,2025]
+
+co2_historique1 = np.array([280,315,334,370,425,425,400])*1e-6
+co2_historique2 = np.array([280,315,334,370,425,480,450])*1e-6
+co2_historique3 = np.array([280,315,334,370,425,500,600])*1e-6
+co2_historique4 = np.array([280,315,334,370,425,550,850])*1e-6
+co2_historique5 = np.array([280,315,334,370,425,575,1100])*1e-6
+annees = [1750,1958,1979,2000,2025,2050,2100]
+
+alb=.29
+t_sf0 = []
+t_sf1 = []
+t_sf2 = []
+t_sf3 = []
+t_sf4 = []
+t_sf5 = []
+
+for i, c in enumerate(co2_historique0):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf0.append(rcm.Ts[0])
+
+for i, c in enumerate(co2_historique1):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf1.append(rcm.Ts[0])
+
+for i, c in enumerate(co2_historique2):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf2.append(rcm.Ts[0])
+
+for i, c in enumerate(co2_historique3):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf3.append(rcm.Ts[0])
+
+for i, c in enumerate(co2_historique4):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf4.append(rcm.Ts[0])
+
+for i, c in enumerate(co2_historique5):
+    state = climlab.column_state(num_lev=30)
+    h2o = climlab.radiation.ManabeWaterVapor(name='WaterVapor', state=state)
+    rad = climlab.radiation.RRTMG(name='Radiation', state=state, specific_humidity=h2o.q, albedo=alb)
+    rcm = climlab.couple([rad,h2o], name='Radiative-Convective Model')
+    rcm.absorber_vmr['CO2'] = c # modifier [C]
+    rcm.integrate_years(2) # Run the model for two years
+    t_sf5.append(rcm.Ts[0])
+
+print(f"Écart entre pré-indu et i=15: {t_sf[15]-t_sf[0]:.2f}")
+print(f"Écart entre pré-indu et i=16: {t_sf[16]-t_sf[0]:.2f}")
+print(f"Écart pour 1: {t_sf1[-1]-t_sf1[0]:.2f}")
+print(f"Écart pour 2: {t_sf2[-1]-t_sf2[0]:.2f}")
+print(f"Écart pour 3: {t_sf3[-1]-t_sf3[0]:.2f}")
+print(f"Écart pour 4: {t_sf4[-1]-t_sf4[0]:.2f}")
+print(f"Écart pour 5: {t_sf5[-1]-t_sf5[0]:.2f}")
+
+ax[1].plot(annees,t_sf1,  color='lightskyblue', label='SSP1-1.9')
+ax[1].plot(annees,t_sf2,  color='tab:blue', label='SSP1-2.6')
+ax[1].plot(annees,t_sf3,  color='orange', label='SSP2-4.5')
+ax[1].plot(annees,t_sf4,  color='lightcoral', label='SSP3-7.0')
+ax[1].plot(annees,t_sf5,  color='firebrick', label='SSP5-8.5')
+ax[1].plot(annees_histo,t_sf0,  color='darkgrey', label='historique')
+
+ax[1].set_ylabel(r'$T_s$ (K)')
+ax[1].set_xlabel('Année')
+ax[1].set_title('b)')
+ax[1].set_yticks([274,275,276,277])
+plt.legend(
+    loc='lower center',
+    bbox_to_anchor=(0.5, -0.5),   # sous le graphe
+    ncol=6,                       # en ligne (ajuste le nombre)
+    fontsize=8                    # plus petit
+)
+plt.subplots_adjust(hspace=0.4)
+fig_name=outpath+'extra_planche2.png'
 print('output figure: ', fig_name)
 plt.savefig(fig_name,dpi=500,bbox_inches='tight')
 plt.close()
