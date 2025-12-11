@@ -300,7 +300,7 @@ class L96:
         dt : Time step (default 0.001)
         """
         self.F, self.h, self.b, self.c, self.dt = F, h, b, c, dt
-        self.X, self.Y, self.t = b * np.random.randn(K), np.random.randn(J * K), t
+        self.X, self.Y, self.t = b * np.random.randn(K), np.random.randn(J * K), t # Initialisation de 8 conditions initiales X aléatoires et mm chose pour J
         self.K, self.J, self.JK = K, J, J * K  # For convenience
         self.k, self.j = np.arange(self.K), np.arange(self.JK)  # For plotting
 
